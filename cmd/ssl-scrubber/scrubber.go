@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/gdamore/tcell"
 	"github.com/rhololkeolke/ssl-go-tools/pkg/persistence"
-	// "github.com/gdamore/tcell"
 	"github.com/rivo/tview"
 	"log"
 	"time"
@@ -33,6 +33,17 @@ func main() {
 	}
 
 	app := tview.NewApplication()
+	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		switch event.Key() {
+		case tcell.KeyRune:
+			switch event.Rune() {
+			case 'q':
+				app.Stop()
+				return nil
+			}
+		}
+		return event
+	})
 
 	textView := tview.NewTextView().
 		SetDynamicColors(true).
@@ -47,6 +58,22 @@ func main() {
 	rewind_button := tview.NewButton("⏪")
 	fast_forward_button := tview.NewButton("⏩")
 
+	play_pause_button.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+			switch event.Key() {
+			case tcell.KeyLeft:
+				// switch focus to prev button
+				app.SetFocus(rewind_button)
+				return nil
+			case tcell.KeyRight:
+				// switch focus to next button
+				app.SetFocus(fast_forward_button)
+				return nil
+			default:
+				return event
+			}
+		})
+	
+
 	flex := tview.NewFlex().
 		SetDirection(tview.FlexRow).
 		AddItem(textView, 0, 1, false).
@@ -56,7 +83,7 @@ func main() {
 			AddItem(play_pause_button, 0, 1, true).
 			AddItem(fast_forward_button, 0, 1, false).
 			AddItem(step_forward_button, 0, 1, false),
-		0, 1, true)
+			0, 1, true)
 
 	reader_chan := make(chan *persistence.Reader)
 
