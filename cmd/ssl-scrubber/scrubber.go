@@ -33,6 +33,7 @@ func main() {
 	}
 
 	app := tview.NewApplication()
+
 	textView := tview.NewTextView().
 		SetDynamicColors(true).
 		SetRegions(true).
@@ -40,6 +41,22 @@ func main() {
 			app.Draw()
 		})
 	textView.SetBorder(true)
+	play_pause_button := tview.NewButton("▶")
+	step_back_button := tview.NewButton("↶")
+	step_forward_button := tview.NewButton("↷")
+	rewind_button := tview.NewButton("⏪")
+	fast_forward_button := tview.NewButton("⏩")
+
+	flex := tview.NewFlex().
+		SetDirection(tview.FlexRow).
+		AddItem(textView, 0, 1, false).
+		AddItem(tview.NewFlex().
+			AddItem(step_back_button, 0, 1, false).
+			AddItem(rewind_button, 0, 1, false).
+			AddItem(play_pause_button, 0, 1, true).
+			AddItem(fast_forward_button, 0, 1, false).
+			AddItem(step_forward_button, 0, 1, false),
+		0, 1, true)
 
 	reader_chan := make(chan *persistence.Reader)
 
@@ -115,7 +132,7 @@ func main() {
 		}
 	}()
 
-	if err := app.SetRoot(textView, true).SetFocus(textView).Run(); err != nil {
+	if err := app.SetRoot(flex, true).SetFocus(flex).Run(); err != nil {
 		panic(err)
 	}
 
