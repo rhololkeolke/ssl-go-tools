@@ -17,6 +17,9 @@ const channelBufferSize = 100
 type Reader struct {
 	file   *os.File
 	reader *bufio.Reader
+	// TODO(dschwab): Move this to it's own class IndexedReader,
+	// and use a Reader as an anonymous Field. This should allow
+	// all the public methods to be called by the IndexedReader
 	index  *btree.Tree
 }
 
