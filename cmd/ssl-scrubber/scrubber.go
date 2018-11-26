@@ -3,11 +3,10 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/RoboCup-SSL/ssl-go-tools/pkg/persistence"
+	"github.com/rhololkeolke/ssl-go-tools/pkg/persistence"
 	// "github.com/gdamore/tcell"
 	"github.com/rivo/tview"
 	"log"
-	"time"
 )
 
 var addressVisionLegacy = flag.String("vision-legacy-address", "224.5.23.2:10005", "Multicast address for vision 2010 (legacy)")
@@ -37,23 +36,6 @@ func main() {
 		log.Fatal(err)
 	}
 
-	msg_count_chan := make(chan int)
-
-	// count messages
-	go func() {
-		var count int = 0
-		for reader.HasMessage() {
-			if _, err := reader.ReadMessage(); err != nil {
-				log.Print(err)
-				break
-			}
-			count += 1
-		}
-
-		msg_count_chan <- count
-		close(msg_count_chan)
-	}()
-
 	app := tview.NewApplication()
 	textView := tview.NewTextView().
 		SetDynamicColors(true).
@@ -61,64 +43,8 @@ func main() {
 		SetChangedFunc(func() {
 			app.Draw()
 		})
-	go func() {
-		throbber_pattern := []string{"▐⠂       ▌",
-			"▐⠈       ▌",
-			"▐ ⠂      ▌",
-			"▐ ⠠      ▌",
-			"▐  ⡀     ▌",
-			"▐  ⠠     ▌",
-			"▐   ⠂    ▌",
-			"▐   ⠈    ▌",
-			"▐    ⠂   ▌",
-			"▐    ⠠   ▌",
-			"▐     ⡀  ▌",
-			"▐     ⠠  ▌",
-			"▐      ⠂ ▌",
-			"▐      ⠈ ▌",
-			"▐       ⠂▌",
-			"▐       ⠠▌",
-			"▐       ⡀▌",
-			"▐      ⠠ ▌",
-			"▐      ⠂ ▌",
-			"▐     ⠈  ▌",
-			"▐     ⠂  ▌",
-			"▐    ⠠   ▌",
-			"▐    ⡀   ▌",
-			"▐   ⠠    ▌",
-			"▐   ⠂    ▌",
-			"▐  ⠈     ▌",
-			"▐  ⠂     ▌",
-			"▐ ⠠      ▌",
-			"▐ ⡀      ▌",
-			"▐⠠       ▌"}
-		throbber_index := 0
 
-		textView.Clear()
-		fmt.Fprintf(textView,
-			"Counting messages in [blue]'%s'[white]...[purple]%s[white]\n\n",
-			*logFile, throbber_pattern[throbber_index%len(throbber_pattern)])
-		throbber_index += 1
-		time.Sleep(1 * time.Millisecond)
-
-		finished := false
-		for !finished {
-			textView.Clear()
-
-			select {
-			case res := <-msg_count_chan:
-				fmt.Fprintf(textView, "[blue]'%s'[white] has [green]%d[white] messages.", *logFile, res)
-				finished = true
-			case <-time.After(80 * time.Millisecond):
-				fmt.Fprintf(textView,
-					"Counting messages in [blue]'%s'[white]...[purple]%s[white]\n\n",
-					*logFile, throbber_pattern[throbber_index%len(throbber_pattern)])
-				throbber_index += 1
-
-			}
-			time.Sleep(1 * time.Millisecond)			
-		}
-	}()
+	fmt.Fprintf(textView, "[blue]%s[white] has [green]%d[white] messages", *logFile, reader.NumMessages())
 	textView.SetBorder(true)
 	if err := app.SetRoot(textView, true).SetFocus(textView).Run(); err != nil {
 		panic(err)

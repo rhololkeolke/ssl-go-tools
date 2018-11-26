@@ -5,6 +5,8 @@ import (
 	"compress/gzip"
 	"encoding/binary"
 	"fmt"
+	"github.com/emirpasic/gods/trees/btree"
+	"github.com/emirpasic/gods/utils"	
 	"github.com/pkg/errors"
 	"io"
 	"os"
@@ -15,6 +17,7 @@ const channelBufferSize = 100
 type Reader struct {
 	file   *os.File
 	reader *bufio.Reader
+	index  *btree.Tree
 }
 
 func NewReader(filename string) (logReader *Reader, err error) {
@@ -34,11 +37,40 @@ func NewReader(filename string) (logReader *Reader, err error) {
 		logReader.reader = bufio.NewReader(logReader.file)
 	}
 	logReader.verifyLogFile()
+
+	// create the time index to allow for querying and jumping to
+	// specific time codes
+	logReader.index = btree.NewWith(3, utils.Int64Comparator)
+
+	for logReader.HasMessage() {
+		currOffset, err := logReader.file.Seek(0, 1)
+		if err != nil {
+			return nil, errors.Wrap(err, "Could not create time index for file: "+filename)
+		}
+		msg, err := logReader.ReadMessage()
+		if err != nil {
+			// TODO(dschwab): On some of the log files I
+			// get an unexpected EOF. Either the log files
+			// are bad, or I'm doing something wrong
+			
+			// return nil, err
+			break
+		}
+		logReader.index.Put(msg.Timestamp, currOffset)
+	}
+	if _, err := logReader.file.Seek(0, 0); err != nil {
+		return nil, errors.Wrap(err, "Failed to reset file offset to 0 for file: "+filename)
+	}
+
 	return
 }
 
 func (l *Reader) Close() error {
 	return l.file.Close()
+}
+
+func (l *Reader) NumMessages() int {
+	return l.index.Size()
 }
 
 func (l *Reader) HasMessage() bool {
