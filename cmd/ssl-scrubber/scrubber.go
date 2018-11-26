@@ -7,6 +7,7 @@ import (
 	// "github.com/gdamore/tcell"
 	"github.com/rivo/tview"
 	"log"
+	"time"
 )
 
 var addressVisionLegacy = flag.String("vision-legacy-address", "224.5.23.2:10005", "Multicast address for vision 2010 (legacy)")
@@ -31,11 +32,6 @@ func main() {
 		log.Fatal("Missing logfile")
 	}
 
-	reader, err := persistence.NewReader(*logFile)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	app := tview.NewApplication()
 	textView := tview.NewTextView().
 		SetDynamicColors(true).
@@ -43,9 +39,82 @@ func main() {
 		SetChangedFunc(func() {
 			app.Draw()
 		})
-
-	fmt.Fprintf(textView, "[blue]%s[white] has [green]%d[white] messages", *logFile, reader.NumMessages())
 	textView.SetBorder(true)
+
+	reader_chan := make(chan *persistence.Reader)
+
+	go func() {
+		reader, err := persistence.NewReader(*logFile)
+		if err != nil {
+			log.Print(err)
+			close(reader_chan)
+		}
+		reader_chan <- reader
+	}()
+
+	go func() {
+		throbber_pattern := []string{"▐⠂       ▌",
+			"▐⠈       ▌",
+			"▐ ⠂      ▌",
+			"▐ ⠠      ▌",
+			"▐  ⡀     ▌",
+			"▐  ⠠     ▌",
+			"▐   ⠂    ▌",
+			"▐   ⠈    ▌",
+			"▐    ⠂   ▌",
+			"▐    ⠠   ▌",
+			"▐     ⡀  ▌",
+			"▐     ⠠  ▌",
+			"▐      ⠂ ▌",
+			"▐      ⠈ ▌",
+			"▐       ⠂▌",
+			"▐       ⠠▌",
+			"▐       ⡀▌",
+			"▐      ⠠ ▌",
+			"▐      ⠂ ▌",
+			"▐     ⠈  ▌",
+			"▐     ⠂  ▌",
+			"▐    ⠠   ▌",
+			"▐    ⡀   ▌",
+			"▐   ⠠    ▌",
+			"▐   ⠂    ▌",
+			"▐  ⠈     ▌",
+			"▐  ⠂     ▌",
+			"▐ ⠠      ▌",
+			"▐ ⡀      ▌",
+			"▐⠠       ▌"}
+		throbber_index := 0
+
+		textView.Clear()
+		fmt.Fprintf(textView,
+			"Counting messages in [blue]'%s'[white]...[purple]%s[white]\n\n",
+			*logFile, throbber_pattern[throbber_index%len(throbber_pattern)])
+		throbber_index += 1
+		time.Sleep(1 * time.Millisecond)
+
+		finished := false
+		for !finished {
+			textView.Clear()
+
+			select {
+			case reader, ok := <-reader_chan:
+				if ok {
+					fmt.Fprintf(textView, "[blue]'%s'[white] has [green]%d[white] messages.", *logFile, reader.NumMessages())
+				} else {
+					fmt.Fprintf(textView, "[blue]'%s'[white]. [red]Error opening file and creating index[white]", *logFile)
+				}
+				finished = true
+			case <-time.After(80 * time.Millisecond):
+				fmt.Fprintf(textView,
+					"Opening log [blue]'%s'[white]. May take a few moments to build the index...[purple]%s[white]\n\n",
+					*logFile, throbber_pattern[throbber_index%len(throbber_pattern)])
+				throbber_index += 1
+
+			}
+			time.Sleep(1 * time.Millisecond)
+		}
+	}()
+
 	if err := app.SetRoot(textView, true).SetFocus(textView).Run(); err != nil {
 		panic(err)
 	}
