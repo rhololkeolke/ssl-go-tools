@@ -84,9 +84,8 @@ func (l *IndexedLog) Next() (timestamp int64, msg *Message, err error) {
 		timestamp := l.iterator.Key().(int64)
 		msg := l.iterator.Value().(*Message)
 		return timestamp, msg, nil
-	} else {
-		return 0, nil, errors.New("No more messages")
 	}
+	return 0, nil, errors.New("No more messages")
 }
 
 // func (l *IndexedLog) Seek(offset int, whence int) (int, error) {
